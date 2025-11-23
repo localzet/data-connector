@@ -7,11 +7,10 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    environment: env
     permissions:
       contents: read
       id-token: write
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,13 +30,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
-
-      - name: Configure npm authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" >> ~/.npmrc
-          echo "@localzet:registry=https://registry.npmjs.org/" >> ~/.npmrc
-          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
 
       - name: Update version in package.json
         run: |
@@ -51,12 +45,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verify npm authentication
-        run: |
-          echo "Verifying npm authentication..."
-          npm whoami || (echo "Error: Not authenticated to npm" && exit 1)
-          echo "Authenticated as: $(npm whoami)"
-
       - name: Publish to NPM
-        run: npm publish --access public
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
