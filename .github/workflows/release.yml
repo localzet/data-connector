@@ -31,9 +31,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-          always-auth: true
           cache: 'npm'
+
+      - name: Configure npm authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" >> ~/.npmrc
+          echo "@localzet:registry=https://registry.npmjs.org/" >> ~/.npmrc
+          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
 
       - name: Update version in package.json
         run: |
@@ -55,6 +59,4 @@ jobs:
 
       - name: Publish to NPM
         run: npm publish --access public
-        env:
-          NPM_CONFIG_SCOPE: "@localzet"
 
