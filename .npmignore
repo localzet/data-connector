@@ -1,0 +1,41 @@
+# Source files (only dist should be published)
+src/
+tsconfig.json
+tsconfig.*.json
+
+# Development files
+*.md
+!README.md
+USAGE.md
+
+# Git files
+.git/
+.gitignore
+.github/
+
+# Development dependencies
+node_modules/
+package-lock.json
+
+# Build artifacts
+*.tsbuildinfo
+*.map
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
