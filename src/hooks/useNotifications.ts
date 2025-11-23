@@ -44,7 +44,7 @@ export function useNotifications() {
       }
 
       const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-        ? import.meta.env.VITE_MIX_ID_API_BASE 
+        ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'http://localhost:3000/api')
         : 'http://localhost:3000/api'
 
       const response = await fetch(`${apiBase}/notifications`, {
@@ -84,7 +84,7 @@ export function useNotifications() {
 
         // Also send via HTTP as fallback
         const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-          ? import.meta.env.VITE_MIX_ID_API_BASE 
+          ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'http://localhost:3000/api')
           : 'http://localhost:3000/api'
 
         await fetch(`${apiBase}/notifications/${notificationId}/read`, {
@@ -113,7 +113,7 @@ export function useNotifications() {
 
       // Send via HTTP
       const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-        ? import.meta.env.VITE_MIX_ID_API_BASE 
+        ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'http://localhost:3000/api')
         : 'http://localhost:3000/api'
 
       await fetch(`${apiBase}/notifications/read-all`, {

@@ -78,15 +78,15 @@ export default function MixIdConnection({
       // Get config from props or environment
       const finalApiBase = apiBase || 
         (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-          ? import.meta.env.VITE_MIX_ID_API_BASE 
+          ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'http://localhost:3000/api')
           : 'http://localhost:3000/api'
       const finalClientId = clientId || 
         (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_CLIENT_ID) 
-          ? import.meta.env.VITE_MIX_ID_CLIENT_ID 
+          ? (import.meta.env?.VITE_MIX_ID_CLIENT_ID || '')
           : ''
       const finalClientSecret = clientSecret || 
         (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_CLIENT_SECRET) 
-          ? import.meta.env.VITE_MIX_ID_CLIENT_SECRET 
+          ? (import.meta.env?.VITE_MIX_ID_CLIENT_SECRET || '')
           : ''
 
       if (!finalClientId || !finalClientSecret) {
@@ -103,7 +103,11 @@ export default function MixIdConnection({
         return
       }
 
-      mixIdApi.setConfig({ apiBase: finalApiBase, clientId: finalClientId, clientSecret: finalClientSecret })
+      mixIdApi.setConfig({ 
+        apiBase: finalApiBase || 'http://localhost:3000/api', 
+        clientId: finalClientId, 
+        clientSecret: finalClientSecret 
+      })
 
       // Initiate OAuth flow
       const redirectUri = typeof window !== 'undefined' ? window.location.origin + '/mixid-callback' : ''

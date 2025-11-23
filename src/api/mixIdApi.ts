@@ -82,9 +82,9 @@ class MixIdApi {
     const token = config.accessToken || (typeof window !== 'undefined' && window.localStorage 
       ? localStorage.getItem('mixId_accessToken') 
       : null)
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     }
 
     if (token) {
@@ -100,10 +100,13 @@ class MixIdApi {
       // Try to refresh token
       const refreshed = await this.refreshAccessToken()
       if (refreshed) {
-        headers['Authorization'] = `Bearer ${refreshed}`
+        const retryHeaders: Record<string, string> = {
+          ...headers,
+          'Authorization': `Bearer ${refreshed}`,
+        }
         const retryResponse = await fetch(`${config.apiBase || MIX_ID_API_BASE}${endpoint}`, {
           ...options,
-          headers,
+          headers: retryHeaders,
         })
         if (!retryResponse.ok) {
           throw new Error(`HTTP ${retryResponse.status}`)

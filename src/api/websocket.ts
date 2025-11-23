@@ -47,7 +47,7 @@ class WebSocketClient {
 
     try {
       const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-        ? import.meta.env.VITE_MIX_ID_API_BASE 
+        ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'http://localhost:3000/api')
         : 'http://localhost:3000/api'
       const wsUrl = apiBase.replace(/^http/, 'ws').replace(/\/api$/, '') + '/ws'
       const ws = new WebSocket(`${wsUrl}?token=${config.accessToken}`)
