@@ -7,7 +7,6 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    environment: env
     permissions:
       contents: read
       id-token: write
