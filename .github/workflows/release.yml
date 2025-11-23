@@ -34,8 +34,9 @@ jobs:
 
       - name: Update version in package.json
         run: |
-          npm version ${{ steps.version.outputs.npm_version }} --no-git-tag-version
-          cat package.json | grep version
+          # Update version in package.json using node for reliable JSON parsing
+          node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); pkg.version = '${{ steps.version.outputs.npm_version }}'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
+          cat package.json | grep '"version"'
 
       - name: Install dependencies
         run: npm ci
