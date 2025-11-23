@@ -61,6 +61,10 @@
     "session-management"
   ],
   "author": "localzet",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/localzet/data-connector.git"
+  }
 }
 
