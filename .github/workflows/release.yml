@@ -47,6 +47,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify npm authentication
+        run: |
+          echo "Verifying npm authentication..."
+          npm whoami || (echo "Error: Not authenticated to npm" && exit 1)
+          echo "Authenticated as: $(npm whoami)"
+
       - name: Publish to NPM
         run: npm publish --access public
+        env:
+          NPM_CONFIG_SCOPE: "@localzet"
 
