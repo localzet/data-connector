@@ -78,8 +78,8 @@ export default function MixIdConnection({
       // Get config from props or environment
       const finalApiBase = apiBase || 
         (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-          ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'http://localhost:3000/api')
-          : 'http://localhost:3000/api'
+          ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api')
+          : 'https://data-center.zorin.cloud/api'
       const finalClientId = clientId || 
         (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_CLIENT_ID) 
           ? (import.meta.env?.VITE_MIX_ID_CLIENT_ID || '')
@@ -104,7 +104,7 @@ export default function MixIdConnection({
       }
 
       mixIdApi.setConfig({ 
-        apiBase: finalApiBase || 'http://localhost:3000/api', 
+        apiBase: finalApiBase || 'https://data-center.zorin.cloud/api', 
         clientId: finalClientId, 
         clientSecret: finalClientSecret 
       })

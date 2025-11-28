@@ -2,7 +2,7 @@ const MIX_ID_API_BASE = typeof window !== 'undefined' && (window as any).__MIX_I
   ? (window as any).__MIX_ID_API_BASE 
   : (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
     ? import.meta.env.VITE_MIX_ID_API_BASE 
-    : 'http://localhost:3000/api'
+    : 'https://data-center.zorin.cloud/api'
 
 export interface MixIdConfig {
   apiBase: string
