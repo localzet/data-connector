@@ -1,4 +1,4 @@
-import { mixIdApi } from './mixIdApi'
+import { api } from './api'
 
 export interface WebSocketMessage {
   type: string
@@ -38,7 +38,7 @@ class WebSocketClient {
       return
     }
 
-    const config = mixIdApi.getConfig()
+    const config = api.getConfig()
     if (!config || !config.accessToken) {
       return
     }
@@ -46,10 +46,8 @@ class WebSocketClient {
     this.isConnecting = true
 
     try {
-      const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-        ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api')
-        : 'https://data-center.zorin.cloud/api'
-      const wsUrl = apiBase.replace(/^http/, 'ws').replace(/\/api$/, '') + '/ws'
+      const server = config.server || import.meta?.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api'
+      const wsUrl = server.replace(/^http/, 'ws').replace(/\/api$/, '') + '/ws'
       const ws = new WebSocket(`${wsUrl}?token=${config.accessToken}`)
 
       ws.onopen = () => {

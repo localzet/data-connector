@@ -13,15 +13,15 @@ import {
 } from '@mantine/core'
 import { IconPlug, IconSettings, IconLogout, IconX } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
-import { mixIdApi, MixIdConfig } from '../api/mixIdApi'
+import { api, Config } from '../api/api'
 import { useMixIdStatus } from '../hooks/useMixIdStatus'
 
 export interface MixIdConnectionProps {
-  onConnected?: () => void
+  onConnected?: (code?: string) => void
   onDisconnected?: () => void
   showSyncSettings?: boolean
   showSyncData?: boolean
-  apiBase?: string
+  server?: string
   clientId?: string
   clientSecret?: string
   notifications?: {
@@ -34,7 +34,7 @@ export default function MixIdConnection({
   onDisconnected,
   showSyncSettings = true,
   showSyncData = true,
-  apiBase,
+  server,
   clientId,
   clientSecret,
   notifications,
@@ -56,13 +56,13 @@ export default function MixIdConnection({
 
   const checkConnection = async () => {
     try {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         setSyncStatusData(null)
         return
       }
 
-      const status = await mixIdApi.getSyncStatus()
+      const status = await api.getSyncStatus()
       setSyncStatusData(status)
       setSyncSettings(status.syncSettings)
       setSyncData(status.syncData)
@@ -76,21 +76,14 @@ export default function MixIdConnection({
   const handleConnect = async () => {
     try {
       // Get config from props or environment
-      const finalApiBase = apiBase || 
-        (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-          ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api')
-          : 'https://data-center.zorin.cloud/api'
+      const finalApiBase = server || import.meta?.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api'
       const finalClientId = clientId || 
         (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_CLIENT_ID) 
           ? (import.meta.env?.VITE_MIX_ID_CLIENT_ID || '')
           : ''
-      const finalClientSecret = clientSecret || 
-        (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_CLIENT_SECRET) 
-          ? (import.meta.env?.VITE_MIX_ID_CLIENT_SECRET || '')
-          : ''
 
-      if (!finalClientId || !finalClientSecret) {
-        const message = 'MIX ID не настроен. Укажите VITE_MIX_ID_CLIENT_ID и VITE_MIX_ID_CLIENT_SECRET'
+      if (!finalClientId) {
+        const message = 'MIX ID не настроен. Укажите VITE_MIX_ID_CLIENT_ID (clientId)'
         if (notifications) {
           notifications.show({
             title: 'Ошибка',
@@ -103,15 +96,18 @@ export default function MixIdConnection({
         return
       }
 
-      mixIdApi.setConfig({ 
-        apiBase: finalApiBase || 'https://data-center.zorin.cloud/api', 
-        clientId: finalClientId, 
-        clientSecret: finalClientSecret 
+      // Не сохраняем clientSecret в клиентском приложении.
+      // Если у вас есть clientSecret, выполняйте обмен кода на сервере (server-side),
+      // либо включите PKCE на бэкенде. Для desktop-приложений (Electron) можно
+      // передать `clientSecret` через безопасный адаптер хранения (secure native store).
+      api.setConfig({
+        server: finalApiBase || 'https://data-center.zorin.cloud/api',
+        clientId: finalClientId,
       })
 
       // Initiate OAuth flow
       const redirectUri = typeof window !== 'undefined' ? window.location.origin + '/mixid-callback' : ''
-      const { authorizationUrl, code } = await mixIdApi.initiateOAuth(redirectUri)
+      const { authorizationUrl, code } = await api.initiateOAuth(redirectUri)
 
       // Open OAuth window
       if (typeof window === 'undefined') return
@@ -130,25 +126,26 @@ export default function MixIdConnection({
       // Listen for OAuth callback
       const handleMessage = async (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return
-        if (event.data.type === 'mixid-oauth-callback') {
+          if (event.data.type === 'mixid-oauth-callback') {
           window.removeEventListener('message', handleMessage)
           oauthWindow?.close()
 
           try {
-            const { code: callbackCode } = event.data
-            await mixIdApi.exchangeCodeForToken(callbackCode || code, redirectUri)
-            // Dispatch event to trigger WebSocket connection and status update
-            window.dispatchEvent(new Event('mixid-config-changed'))
-            await checkConnection()
-            if (notifications) {
-              notifications.show({
-                title: 'Успешно',
-                message: 'MIX ID подключен',
-                color: 'green',
-              })
-            }
-            onConnected?.()
-            openSettings()
+              const { code: callbackCode } = event.data
+              // Delegate token exchange to the embedding app/backend for security.
+              // Return the authorization code to the parent via callback.
+              onConnected?.(callbackCode || code)
+              // Trigger status update so parent can check connection state
+              window.dispatchEvent(new Event('mixid-config-changed'))
+              await checkConnection()
+              if (notifications) {
+                notifications.show({
+                  title: 'Успешно',
+                  message: 'MIX ID подключен',
+                  color: 'green',
+                })
+              }
+              openSettings()
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Не удалось подключить MIX ID'
             if (notifications) {
@@ -191,7 +188,7 @@ export default function MixIdConnection({
     if (typeof window === 'undefined') return
     if (!confirm('Вы уверены, что хотите отключить MIX ID?')) return
 
-    mixIdApi.clearConfig()
+    api.clearConfig()
     // Dispatch event to trigger WebSocket disconnection and status update
     window.dispatchEvent(new Event('mixid-config-changed'))
     setSyncStatusData(null)
@@ -207,7 +204,7 @@ export default function MixIdConnection({
 
   const handleSaveSettings = async () => {
     try {
-      await mixIdApi.updateSyncPreferences(syncSettings, syncData)
+      await api.updateSyncPreferences(syncSettings, syncData)
       if (notifications) {
         notifications.show({
           title: 'Успешно',

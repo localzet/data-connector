@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { mixIdApi } from '../api/mixIdApi'
+import { api } from '../api/api'
 import { wsClient } from '../api/websocket'
 
 export type MixIdSyncStatus = 'connected-ws' | 'connected-rest' | 'disconnected' | 'checking'
@@ -18,7 +18,7 @@ export function useMixIdStatus(): UseMixIdStatusReturn {
 
   const checkStatus = useCallback(async () => {
     try {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       const hasConfigValue = !!(config && config.accessToken)
       setHasConfig(hasConfigValue)
 
@@ -37,7 +37,7 @@ export function useMixIdStatus(): UseMixIdStatusReturn {
       } else {
         // Check if we can use REST API (try to get sync status)
         try {
-          await mixIdApi.getSyncStatus()
+          await api.getSyncStatus()
           setIsConnected(true)
           setSyncStatus('connected-rest')
         } catch (error) {
@@ -58,9 +58,9 @@ export function useMixIdStatus(): UseMixIdStatusReturn {
     // Check periodically
     const interval = setInterval(checkStatus, 2000) // Check every 2 seconds
 
-    // Listen to storage changes (for cross-tab updates)
+    // Listen to storage changes (для cross-tab обновлений, если приложение использует персистентное хранилище)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'mixId_config' || e.key === 'mixId_accessToken' || e.key === 'mixId_refreshToken') {
+      if (e.key === 'mixid_config' || e.key === 'mixId_config' ) {
         checkStatus()
       }
     }

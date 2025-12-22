@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { mixIdApi } from '../api/mixIdApi'
+import { api } from '../api/api'
 import { wsClient } from '../api/websocket'
 
 export interface Notification {
@@ -38,16 +38,13 @@ export function useNotifications() {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         return
       }
 
-      const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-        ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api')
-        : 'https://data-center.zorin.cloud/api'
-
-      const response = await fetch(`${apiBase}/notifications`, {
+      const server = config.server || import.meta?.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api'
+      const response = await fetch(`${server}/notifications`, {
         headers: {
           Authorization: `Bearer ${config.accessToken}`,
         },
@@ -65,7 +62,7 @@ export function useNotifications() {
   const markAsRead = useCallback(
     async (notificationId: string) => {
       try {
-        const config = mixIdApi.getConfig()
+        const config = api.getConfig()
         if (!config || !config.accessToken) {
           return
         }
@@ -83,11 +80,9 @@ export function useNotifications() {
         }
 
         // Also send via HTTP as fallback
-        const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-          ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api')
-          : 'https://data-center.zorin.cloud/api'
+        const server = config.server || import.meta?.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api'
 
-        await fetch(`${apiBase}/notifications/${notificationId}/read`, {
+        await fetch(`${server}/notifications/${notificationId}/read`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${config.accessToken}`,
@@ -102,7 +97,7 @@ export function useNotifications() {
 
   const markAllAsRead = useCallback(async () => {
     try {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         return
       }
@@ -112,11 +107,9 @@ export function useNotifications() {
       saveNotifications(updated)
 
       // Send via HTTP
-      const apiBase = config.apiBase || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-        ? (import.meta.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api')
-        : 'https://data-center.zorin.cloud/api'
+      const server = config.server || import.meta?.env?.VITE_MIX_ID_API_BASE || 'https://data-center.zorin.cloud/api'
 
-      await fetch(`${apiBase}/notifications/read-all`, {
+      await fetch(`${server}/notifications/read-all`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${config.accessToken}`,
@@ -128,7 +121,7 @@ export function useNotifications() {
   }, [notifications, saveNotifications])
 
   useEffect(() => {
-    const config = mixIdApi.getConfig()
+    const config = api.getConfig()
     if (!config || !config.accessToken) {
       // Clear notifications if MIX ID is not connected
       saveNotifications([])

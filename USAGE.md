@@ -136,7 +136,7 @@ VITE_MIX_ID_CLIENT_SECRET=your_client_secret
 
 ```typescript
 // Настройка
-mixIdApi.setConfig({ apiBase, clientId, clientSecret })
+mixIdApi.setConfig({ server, clientId, clientSecret })
 const config = mixIdApi.getConfig()
 mixIdApi.clearConfig()
 

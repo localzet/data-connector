@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState } from 'react'
-import { mixIdApi } from '../api/mixIdApi'
+import { api } from '../api/api'
 import { wsClient } from '../api/websocket'
 
 export interface Session {
@@ -30,12 +30,12 @@ export function useMixIdSession(options: UseMixIdSessionOptions = {}) {
 
   const sendHeartbeat = useCallback(async () => {
     try {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         return
       }
 
-      const result = await mixIdApi.heartbeat({
+      const result = await api.heartbeat({
         platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         timestamp: new Date().toISOString(),
@@ -50,12 +50,12 @@ export function useMixIdSession(options: UseMixIdSessionOptions = {}) {
       // If heartbeat fails with 401/403, session might be deleted or expired
       if (error instanceof Error) {
         if (error.message.includes('401') || error.message.includes('403')) {
-          mixIdApi.clearConfig()
+          api.clearConfig()
           wsClient.disconnect()
           onSessionExpired?.()
         } else if (error.message.includes('404')) {
           // Session not found - might have been deleted
-          mixIdApi.clearConfig()
+          api.clearConfig()
           wsClient.disconnect()
           onSessionDeleted?.()
         } else {
@@ -67,19 +67,19 @@ export function useMixIdSession(options: UseMixIdSessionOptions = {}) {
 
   const checkSession = useCallback(async () => {
     try {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         return
       }
 
       // Try to get sessions to verify current session exists
-      const sessions = await mixIdApi.getSessions()
+      const sessions = await api.getSessions()
       // If we have a current session ID, check if it still exists
       if (currentSessionId) {
         const sessionExists = sessions.some(s => s.id === currentSessionId)
         if (!sessionExists) {
           // Session was deleted
-          mixIdApi.clearConfig()
+          api.clearConfig()
           wsClient.disconnect()
           onSessionDeleted?.()
         }
@@ -87,7 +87,7 @@ export function useMixIdSession(options: UseMixIdSessionOptions = {}) {
     } catch (error) {
       console.error('Failed to check session:', error)
       if (error instanceof Error && (error.message.includes('401') || error.message.includes('403'))) {
-        mixIdApi.clearConfig()
+        api.clearConfig()
         wsClient.disconnect()
         onSessionExpired?.()
       }
@@ -95,7 +95,7 @@ export function useMixIdSession(options: UseMixIdSessionOptions = {}) {
   }, [currentSessionId, onSessionDeleted, onSessionExpired])
 
   useEffect(() => {
-    const config = mixIdApi.getConfig()
+    const config = api.getConfig()
     if (!config || !config.accessToken) {
       return
     }
@@ -111,7 +111,7 @@ export function useMixIdSession(options: UseMixIdSessionOptions = {}) {
       if (message.sessionId) {
         if (currentSessionId && message.sessionId === currentSessionId) {
           // Our session was deleted
-          mixIdApi.clearConfig()
+          api.clearConfig()
           wsClient.disconnect()
           onSessionDeleted?.()
         }
@@ -123,7 +123,7 @@ export function useMixIdSession(options: UseMixIdSessionOptions = {}) {
     }
 
     const handleSessionExpired = () => {
-      mixIdApi.clearConfig()
+      api.clearConfig()
       wsClient.disconnect()
       onSessionExpired?.()
     }

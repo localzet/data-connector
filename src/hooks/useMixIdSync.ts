@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { mixIdApi } from '../api/mixIdApi'
+import { api } from '../api/api'
 import { wsClient } from '../api/websocket'
 import { offlineQueue } from '../api/offlineQueue'
 
@@ -62,10 +62,10 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
   const uploadSettings = useCallback(
     async (settingsToUpload: any, version?: number) => {
       try {
-        const syncStatus = await mixIdApi.getSyncStatus()
+        const syncStatus = await api.getSyncStatus()
         if (!syncStatus.syncSettings) return
 
-        const result = await mixIdApi.uploadSettings(settingsToUpload)
+        const result = await api.uploadSettings(settingsToUpload)
         lastSettingsVersionRef.current = result.version
         lastSettingsUpdateRef.current = Date.now()
 
@@ -91,10 +91,10 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
   // Upload data
   const uploadData = useCallback(async (dataType: string, data: Record<string, any>) => {
     try {
-      const syncStatus = await mixIdApi.getSyncStatus()
+      const syncStatus = await api.getSyncStatus()
       if (!syncStatus.syncData) return
 
-      await mixIdApi.uploadData(dataType, data)
+      await api.uploadData(dataType, data)
 
       // Send via WebSocket for real-time sync
       if (wsClient.isConnected()) {
@@ -125,16 +125,16 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
   // Perform sync
   const performSync = useCallback(async () => {
     try {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         return
       }
 
       // Get sync status
-      const syncStatus = await mixIdApi.getSyncStatus()
+      const syncStatus = await api.getSyncStatus()
 
       // Check for updates
-      const updates = await mixIdApi.checkUpdates(
+      const updates = await api.checkUpdates(
         lastSettingsVersionRef.current,
         syncStatus.syncData && dataTypes.length > 0 ? dataTypes : undefined
       )
@@ -143,7 +143,7 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
       if (updates.hasUpdates) {
         if (updates.updates.settings && syncStatus.syncSettings && getLocalSettings && saveLocalSettings) {
           try {
-            const remoteSettings = await mixIdApi.downloadSettings()
+            const remoteSettings = await api.downloadSettings()
             const localSettings = getLocalSettings()
             const merged = mergeWithConflictResolution(localSettings, remoteSettings.settings, remoteSettings.updatedAt)
             await saveLocalSettings(merged)
@@ -158,7 +158,7 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
           for (const dataType of dataTypes) {
             if (updates.updates.data[dataType] && getLocalData && saveLocalData) {
               try {
-                const remoteData = await mixIdApi.downloadData(dataType)
+                const remoteData = await api.downloadData(dataType)
                 const localData = await getLocalData(dataType)
                 
                 // Merge with conflict resolution
@@ -213,7 +213,7 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
 
   useEffect(() => {
     const setupSync = () => {
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         // Disconnect WebSocket if config is cleared
         wsClient.disconnect()
@@ -235,7 +235,7 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
     if (typeof window !== 'undefined') {
       window.addEventListener('mixid-config-changed', handleConfigChange)
 
-      const config = mixIdApi.getConfig()
+      const config = api.getConfig()
       if (!config || !config.accessToken) {
         return () => {
           window.removeEventListener('mixid-config-changed', handleConfigChange)
@@ -277,7 +277,7 @@ export function useMixIdSync(options: UseMixIdSyncOptions = {}) {
 
       // Set up heartbeat
       heartbeatIntervalRef.current = setInterval(() => {
-        mixIdApi.heartbeat({
+        api.heartbeat({
           platform: typeof navigator !== 'undefined' ? navigator.platform : 'unknown',
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
         }).catch(console.error)

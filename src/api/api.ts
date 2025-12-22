@@ -1,61 +1,57 @@
-const MIX_ID_API_BASE = typeof window !== 'undefined' && (window as any).__MIX_ID_API_BASE 
-  ? (window as any).__MIX_ID_API_BASE 
-  : (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MIX_ID_API_BASE) 
-    ? import.meta.env.VITE_MIX_ID_API_BASE 
-    : 'https://data-center.zorin.cloud/api'
+import { createDefaultStorage, StorageAdapter } from './storage'
 
-export interface MixIdConfig {
-  apiBase: string
+const MIX_ID_API_BASE = import.meta?.env?.VITE_MIX_ID_API_BASE ?? 'https://data-center.zorin.cloud/api'
+
+export interface Config {
+  // Server
+  server: string
+
+  // App
   clientId: string
-  clientSecret: string
+  clientSecret?: string
+
+  // User
   accessToken?: string
   refreshToken?: string
 }
 
-class MixIdApi {
-  private config: MixIdConfig | null = null
+class API {
+  private config: Config | null = null
+  private storage: StorageAdapter
 
-  setConfig(config: MixIdConfig) {
-    this.config = config
-    // Save config without tokens (tokens saved separately)
-    const { accessToken, refreshToken, ...configWithoutTokens } = config
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.setItem('mixId_config', JSON.stringify(configWithoutTokens))
-      
-      if (config.accessToken) {
-        localStorage.setItem('mixId_accessToken', config.accessToken)
-      }
-      if (config.refreshToken) {
-        localStorage.setItem('mixId_refreshToken', config.refreshToken)
-      }
-      
-      // Dispatch custom event for same-tab updates
-      window.dispatchEvent(new Event('mixid-config-changed'))
-    }
+  constructor(storage?: StorageAdapter) {
+    this.storage = storage || createDefaultStorage()
   }
 
-  getConfig(): MixIdConfig | null {
+  setStorageAdapter(adapter: StorageAdapter) {
+    this.storage = adapter
+  }
+
+  setConfig(config: Config) {
+    this.config = config
+
+    try {
+      this.storage.setItem('mixid_config', JSON.stringify({
+        server: config.server,
+        clientId: config.clientId,
+      }))
+    } catch (e) {
+      console.error('Error saving MIX ID config:', e)
+    }
+
+    window?.dispatchEvent(new Event('mixid-config-changed'))
+  }
+
+  getConfig(): Config | null {
     if (!this.config) {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        try {
-          const accessToken = localStorage.getItem('mixId_accessToken')
-          const refreshToken = localStorage.getItem('mixId_refreshToken')
-          const stored = localStorage.getItem('mixId_config')
-          if (stored) {
-            const parsed = JSON.parse(stored)
-            this.config = { 
-              ...parsed, 
-              accessToken: accessToken || undefined, 
-              refreshToken: refreshToken || undefined 
-            }
-          } else if (accessToken || refreshToken) {
-            // If we have tokens but no config, try to restore from tokens
-            console.warn('MIX ID config missing but tokens found. Please reconfigure MIX ID.')
-          }
-        } catch (error) {
-          console.error('Error loading MIX ID config:', error)
-          this.config = null
+      try {
+        const stored = this.storage.getItem('mixid_config')
+        if (stored) {
+          this.config = { ...JSON.parse(stored) } as Config
         }
+      } catch (error) {
+        console.error('Error loading MIX ID config:', error)
+        this.config = null
       }
     }
     return this.config
@@ -63,14 +59,13 @@ class MixIdApi {
 
   clearConfig() {
     this.config = null
-    if (typeof window !== 'undefined' && window.localStorage) {
-      localStorage.removeItem('mixId_config')
-      localStorage.removeItem('mixId_accessToken')
-      localStorage.removeItem('mixId_refreshToken')
-      
-      // Dispatch custom event for same-tab updates
-      window.dispatchEvent(new Event('mixid-config-changed'))
+    try {
+      this.storage.removeItem('mixid_config')
+    } catch (e) {
+      console.error('Error clearing MIX ID config:', e)
     }
+
+    window?.dispatchEvent(new Event('mixid-config-changed'))
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -79,32 +74,29 @@ class MixIdApi {
       throw new Error('MIX ID not configured')
     }
 
-    const token = config.accessToken || (typeof window !== 'undefined' && window.localStorage 
-      ? localStorage.getItem('mixId_accessToken') 
-      : null)
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> || {}),
     }
 
+    const token = config.accessToken || null
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
 
-    const response = await fetch(`${config.apiBase || MIX_ID_API_BASE}${endpoint}`, {
+    const response = await fetch(`${config.server || MIX_ID_API_BASE}${endpoint}`, {
       ...options,
       headers,
     })
 
     if (response.status === 401) {
-      // Try to refresh token
       const refreshed = await this.refreshAccessToken()
       if (refreshed) {
         const retryHeaders: Record<string, string> = {
           ...headers,
-          'Authorization': `Bearer ${refreshed}`,
+          Authorization: `Bearer ${refreshed}`,
         }
-        const retryResponse = await fetch(`${config.apiBase || MIX_ID_API_BASE}${endpoint}`, {
+        const retryResponse = await fetch(`${config.server || MIX_ID_API_BASE}${endpoint}`, {
           ...options,
           headers: retryHeaders,
         })
@@ -125,13 +117,11 @@ class MixIdApi {
 
   private async refreshAccessToken(): Promise<string | null> {
     const config = this.getConfig()
-    const refreshToken = config?.refreshToken || (typeof window !== 'undefined' && window.localStorage
-      ? localStorage.getItem('mixId_refreshToken')
-      : null)
+    const refreshToken = config?.refreshToken
     if (!refreshToken) return null
 
     try {
-      const response = await fetch(`${config?.apiBase || MIX_ID_API_BASE}/auth/refresh`, {
+      const response = await fetch(`${config?.server || MIX_ID_API_BASE}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -141,18 +131,9 @@ class MixIdApi {
 
       const data = await response.json()
       if (data.accessToken) {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem('mixId_accessToken', data.accessToken)
-        }
         if (this.config) {
           this.config.accessToken = data.accessToken
-          // Save updated config
-          const { accessToken: _, refreshToken: __, ...configWithoutTokens } = this.config
-          if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.setItem('mixId_config', JSON.stringify(configWithoutTokens))
-          }
         }
-        // Dispatch custom event for same-tab updates
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('mixid-config-changed'))
         }
@@ -164,7 +145,6 @@ class MixIdApi {
     return null
   }
 
-  // OAuth flow
   async initiateOAuth(redirectUri: string, state?: string): Promise<{ authorizationUrl: string; code: string }> {
     const config = this.getConfig()
     if (!config) {
@@ -195,19 +175,29 @@ class MixIdApi {
       throw new Error('MIX ID not configured')
     }
 
-    // Don't use this.request() here because we don't have a token yet
-    // Make direct fetch without Authorization header
-    const response = await fetch(`${config.apiBase || MIX_ID_API_BASE}/auth/oauth/token`, {
+    // Обмен кода на токен. Не отправляем clientSecret из браузера по умолчанию.
+    // Рекомендуется использовать PKCE или выполнять обмен кода на сервере (server-side exchange).
+    const body: any = {
+      code,
+      clientId: config.clientId,
+      redirectUri,
+    }
+
+    const allowClientSecretInBrowser = import.meta?.env?.VITE_ALLOW_CLIENT_SECRET_IN_BROWSER === 'true'
+    if (config.clientSecret) {
+      if (typeof window === 'undefined' || allowClientSecretInBrowser) {
+        body.clientSecret = config.clientSecret
+      } else {
+        console.warn('clientSecret присутствует, но не отправляется из браузера по соображениям безопасности. Используйте PKCE или server-side exchange.')
+      }
+    }
+
+    const response = await fetch(`${config.server || MIX_ID_API_BASE}/auth/oauth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        code,
-        clientId: config.clientId,
-        clientSecret: config.clientSecret,
-        redirectUri,
-      }),
+      body: JSON.stringify(body),
     })
 
     if (!response.ok) {
@@ -222,7 +212,6 @@ class MixIdApi {
       expires_in: number
     }
 
-    // Save tokens
     this.setConfig({
       ...config,
       accessToken: data.access_token,
@@ -232,7 +221,6 @@ class MixIdApi {
     return data
   }
 
-  // Sync
   async getSyncStatus(): Promise<{
     syncSettings: boolean
     syncData: boolean
@@ -260,19 +248,16 @@ class MixIdApi {
   }
 
   async uploadData(dataType: string, data: Record<string, any>): Promise<{ success: boolean }> {
-    // Split large data into chunks to avoid 413 Payload Too Large
-    const CHUNK_SIZE = 100 // Number of items per chunk
+    const CHUNK_SIZE = 100
     const dataEntries = Object.entries(data)
-    
+
     if (dataEntries.length <= CHUNK_SIZE) {
-      // Small enough to send in one request
       return this.request('/sync/data', {
         method: 'POST',
         body: JSON.stringify({ dataType, data }),
       })
     }
-    
-    // Split into chunks
+
     const chunks: Record<string, any>[] = []
     for (let i = 0; i < dataEntries.length; i += CHUNK_SIZE) {
       const chunk: Record<string, any> = {}
@@ -281,15 +266,14 @@ class MixIdApi {
       }
       chunks.push(chunk)
     }
-    
-    // Upload chunks sequentially
+
     for (const chunk of chunks) {
       await this.request('/sync/data', {
         method: 'POST',
         body: JSON.stringify({ dataType, data: chunk }),
       })
     }
-    
+
     return { success: true }
   }
 
@@ -310,7 +294,6 @@ class MixIdApi {
     return this.request(`/sync/check-updates?${params.toString()}`)
   }
 
-  // Session heartbeat
   async heartbeat(deviceInfo?: any): Promise<{ success: boolean }> {
     return this.request('/sessions/heartbeat', {
       method: 'POST',
@@ -318,7 +301,6 @@ class MixIdApi {
     })
   }
 
-  // Session management
   async getSessions(): Promise<Array<{
     id: string
     deviceInfo: any
@@ -335,5 +317,5 @@ class MixIdApi {
   }
 }
 
-export const mixIdApi = new MixIdApi()
+export const api = new API()
 
